@@ -1,65 +1,186 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useMemo } from "react";
+import { Plus, RotateCcw, Calculator } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DomainSelector } from "@/components/domain-selector";
+import { CGPADisplay } from "@/components/cgpa-display";
+import { SubjectEntryRow } from "@/components/subject-entry-row";
+import {
+  DegreeDomain,
+  SubjectEntry,
+  calculateCGPA,
+  generateId,
+} from "@/lib/grading";
+import { getSubjectsByDomainAndLevel } from "@/lib/subjects";
+
+function createEmptyEntry(): SubjectEntry {
+  return {
+    id: generateId(),
+    subjectId: "",
+    subjectName: "",
+    credits: 4,
+    grade: "S",
+  };
+}
+
+export default function CurrentCGPAPage() {
+  const [domain, setDomain] = useState<DegreeDomain>("ds");
+  const [entries, setEntries] = useState<SubjectEntry[]>([createEmptyEntry()]);
+  const [activeLevel, setActiveLevel] = useState("Foundation");
+
+  const levels = ["Foundation", "Diploma", "Degree"];
+
+  const validEntries = useMemo(
+    () => entries.filter((e) => e.subjectId && e.subjectId !== "" && e.credits > 0),
+    [entries]
+  );
+
+  const cgpa = useMemo(() => calculateCGPA(validEntries), [validEntries]);
+  const totalCredits = useMemo(
+    () => validEntries.reduce((sum, e) => sum + e.credits, 0),
+    [validEntries]
+  );
+
+  const usedSubjectIds = useMemo(
+    () => new Set(entries.map((e) => e.subjectId).filter(Boolean)),
+    [entries]
+  );
+
+  const addEntry = () => {
+    setEntries((prev) => [...prev, createEmptyEntry()]);
+  };
+
+  const removeEntry = (id: string) => {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const updateEntry = (
+    id: string,
+    field: keyof SubjectEntry,
+    value: string | number
+  ) => {
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
+    );
+  };
+
+  const resetAll = () => {
+    setEntries([createEmptyEntry()]);
+  };
+
+  const handleDomainChange = (newDomain: DegreeDomain) => {
+    setDomain(newDomain);
+    setEntries([createEmptyEntry()]);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold flex items-center gap-3">
+          <Calculator className="h-8 w-8 text-primary" />
+          Current CGPA Calculator
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Add your completed subjects and grades to calculate your current CGPA.
+        </p>
+      </div>
+
+      {/* Domain Selector */}
+      <div className="mb-6">
+        <DomainSelector value={domain} onChange={handleDomainChange} />
+      </div>
+
+      {/* CGPA Display */}
+      <div className="mb-6">
+        <CGPADisplay
+          cgpa={cgpa}
+          totalCredits={totalCredits}
+          totalSubjects={validEntries.length}
+          label="Current CGPA"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </div>
+
+      {/* Subject Entries */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Completed Subjects</CardTitle>
+              <CardDescription>
+                Select subjects and assign your grades
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={resetAll}>
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reset
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs
+            value={activeLevel}
+            onValueChange={setActiveLevel}
+            className="mb-4"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <TabsList className="grid w-full grid-cols-3">
+              {levels.map((level) => (
+                <TabsTrigger key={level} value={level}>
+                  {level}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {levels.map((level) => (
+              <TabsContent key={level} value={level} className="mt-4">
+                {/* Column headers (desktop) */}
+                <div className="hidden sm:grid grid-cols-[1fr_80px_120px_40px] gap-2 px-3 pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div>Subject</div>
+                  <div className="text-center">Credits</div>
+                  <div>Grade</div>
+                  <div></div>
+                </div>
+
+                <div className="space-y-2">
+                  {entries
+                    .filter((e) => {
+                      if (!e.subjectId || e.subjectId === "") {
+                        return level === activeLevel;
+                      }
+                      const subjects = getSubjectsByDomainAndLevel(domain, level);
+                      return subjects.some((s) => s.id === e.subjectId);
+                    })
+                    .map((entry) => (
+                      <SubjectEntryRow
+                        key={entry.id}
+                        entry={entry}
+                        subjects={getSubjectsByDomainAndLevel(domain, level)}
+                        usedSubjectIds={usedSubjectIds}
+                        onUpdate={updateEntry}
+                        onRemove={removeEntry}
+                      />
+                    ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addEntry}
+                  className="mt-4 w-full border-dashed"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Subject
+                </Button>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }
