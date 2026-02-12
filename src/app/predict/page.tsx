@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, RotateCcw, TrendingUp, ArrowRight } from "lucide-react";
+import { Plus, RotateCcw, TrendingUp, ArrowRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,11 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { DomainSelector } from "@/components/domain-selector";
 import { CGPADisplay } from "@/components/cgpa-display";
 import { SubjectEntryRow } from "@/components/subject-entry-row";
+import { GradeChart } from "@/components/grade-chart";
+import { LevelBreakdown } from "@/components/level-breakdown";
+import { useStore } from "@/lib/store";
 import {
-  DegreeDomain,
   SubjectEntry,
   calculateCGPA,
   calculateCombinedCGPA,
@@ -35,10 +38,17 @@ function createEmptyEntry(): SubjectEntry {
 }
 
 export default function PredictPage() {
-  const [domain, setDomain] = useState<DegreeDomain>("ds");
-  const [completedEntries, setCompletedEntries] = useState<SubjectEntry[]>([
-    createEmptyEntry(),
-  ]);
+  const {
+    domain,
+    completedEntries,
+    setDomain,
+    addCompleted,
+    removeCompleted,
+    updateCompleted,
+    resetCompleted,
+    setCompletedEntries,
+  } = useStore();
+
   const [ongoingEntries, setOngoingEntries] = useState<SubjectEntry[]>([
     createEmptyEntry(),
   ]);
@@ -47,7 +57,6 @@ export default function PredictPage() {
 
   const levels = ["Foundation", "Diploma", "Degree"];
 
-  // Valid entries
   const validCompleted = useMemo(
     () =>
       completedEntries.filter(
@@ -92,28 +101,23 @@ export default function PredictPage() {
     [completedEntries, ongoingEntries]
   );
 
-  const createHandlers = (
-    setEntries: React.Dispatch<React.SetStateAction<SubjectEntry[]>>
-  ) => ({
-    add: () => setEntries((prev) => [...prev, createEmptyEntry()]),
+  // Ongoing handlers (local state)
+  const ongoingHandlers = {
+    add: () => setOngoingEntries((prev) => [...prev, createEmptyEntry()]),
     remove: (id: string) =>
-      setEntries((prev) => {
+      setOngoingEntries((prev) => {
         const filtered = prev.filter((e) => e.id !== id);
         return filtered.length > 0 ? filtered : [createEmptyEntry()];
       }),
     update: (id: string, field: keyof SubjectEntry, value: string | number) =>
-      setEntries((prev) =>
+      setOngoingEntries((prev) =>
         prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
       ),
-    reset: () => setEntries([createEmptyEntry()]),
-  });
+    reset: () => setOngoingEntries([createEmptyEntry()]),
+  };
 
-  const completedHandlers = createHandlers(setCompletedEntries);
-  const ongoingHandlers = createHandlers(setOngoingEntries);
-
-  const handleDomainChange = (newDomain: DegreeDomain) => {
+  const handleDomainChange = (newDomain: typeof domain) => {
     setDomain(newDomain);
-    setCompletedEntries([createEmptyEntry()]);
     setOngoingEntries([createEmptyEntry()]);
   };
 
@@ -131,8 +135,8 @@ export default function PredictPage() {
           CGPA Prediction
         </h1>
         <p className="text-muted-foreground mt-2">
-          Add completed subjects and your ongoing subjects with expected grades
-          to predict your updated CGPA.
+          Your completed subjects are synced from the Current CGPA tab. Add
+          ongoing subjects with expected grades to predict your updated CGPA.
         </p>
       </div>
 
@@ -140,6 +144,17 @@ export default function PredictPage() {
       <div className="mb-6">
         <DomainSelector value={domain} onChange={handleDomainChange} />
       </div>
+
+      {/* Sync info */}
+      {validCompleted.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5">
+          <Info className="h-4 w-4 text-primary shrink-0" />
+          <span>
+            <span className="font-semibold text-foreground">{validCompleted.length}</span> completed
+            subjects ({currentCredits} credits) synced from Current CGPA tab.
+          </span>
+        </div>
+      )}
 
       {/* CGPA Comparison */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -176,20 +191,32 @@ export default function PredictPage() {
         />
       </div>
 
-      {/* Completed Subjects */}
+      {/* Mobile diff badge */}
+      {cgpaDiff !== 0 && (
+        <div className="md:hidden mb-6 text-center">
+          <Badge
+            variant={cgpaDiff >= 0 ? "default" : "destructive"}
+            className="text-sm px-4 py-1"
+          >
+            {cgpaDiff >= 0 ? "↑" : "↓"} {Math.abs(cgpaDiff).toFixed(2)} CGPA change
+          </Badge>
+        </div>
+      )}
+
+      {/* Completed Subjects (from shared store — read-only listing, editable) */}
       <Card className="mb-6">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-lg">Completed Subjects</CardTitle>
               <CardDescription>
-                Subjects you have already completed
+                Synced from Current CGPA tab — edit here or there, changes are shared
               </CardDescription>
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={completedHandlers.reset}
+              onClick={resetCompleted}
             >
               <RotateCcw className="h-4 w-4 mr-1" />
               Reset
@@ -218,10 +245,7 @@ export default function PredictPage() {
                     .filter((e) => {
                       if (!e.subjectId || e.subjectId === "")
                         return level === completedLevel;
-                      const subjects = getSubjectsByDomainAndLevel(
-                        domain,
-                        level
-                      );
+                      const subjects = getSubjectsByDomainAndLevel(domain, level);
                       return subjects.some((s) => s.id === e.subjectId);
                     })
                     .map((entry) => (
@@ -230,15 +254,15 @@ export default function PredictPage() {
                         entry={entry}
                         subjects={getSubjectsByDomainAndLevel(domain, level)}
                         usedSubjectIds={allUsedSubjectIds}
-                        onUpdate={completedHandlers.update}
-                        onRemove={completedHandlers.remove}
+                        onUpdate={updateCompleted}
+                        onRemove={removeCompleted}
                       />
                     ))}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={completedHandlers.add}
+                  onClick={addCompleted}
                   className="mt-4 w-full border-dashed"
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -253,7 +277,7 @@ export default function PredictPage() {
       <Separator className="my-6" />
 
       {/* Ongoing Subjects */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -296,10 +320,7 @@ export default function PredictPage() {
                     .filter((e) => {
                       if (!e.subjectId || e.subjectId === "")
                         return level === ongoingLevel;
-                      const subjects = getSubjectsByDomainAndLevel(
-                        domain,
-                        level
-                      );
+                      const subjects = getSubjectsByDomainAndLevel(domain, level);
                       return subjects.some((s) => s.id === e.subjectId);
                     })
                     .map((entry) => (
@@ -327,6 +348,17 @@ export default function PredictPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Analytics */}
+      {(validCompleted.length > 0 || validOngoing.length > 0) && (
+        <>
+          <Separator className="my-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <GradeChart entries={[...completedEntries, ...ongoingEntries]} />
+            <LevelBreakdown entries={[...completedEntries, ...ongoingEntries]} domain={domain} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

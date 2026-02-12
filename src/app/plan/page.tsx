@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, RotateCcw, Target, Lightbulb } from "lucide-react";
+import { Plus, RotateCcw, Target, Lightbulb, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,8 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { DomainSelector } from "@/components/domain-selector";
 import { CGPADisplay } from "@/components/cgpa-display";
 import { SubjectEntryRow } from "@/components/subject-entry-row";
+import { GradeChart } from "@/components/grade-chart";
+import { LevelBreakdown } from "@/components/level-breakdown";
+import { useStore } from "@/lib/store";
 import {
-  DegreeDomain,
   SubjectEntry,
   Grade,
   GRADE_POINTS,
@@ -38,10 +40,16 @@ function createEmptyEntry(): SubjectEntry {
 }
 
 export default function PlanPage() {
-  const [domain, setDomain] = useState<DegreeDomain>("ds");
-  const [completedEntries, setCompletedEntries] = useState<SubjectEntry[]>([
-    createEmptyEntry(),
-  ]);
+  const {
+    domain,
+    completedEntries,
+    setDomain,
+    addCompleted,
+    removeCompleted,
+    updateCompleted,
+    resetCompleted,
+  } = useStore();
+
   const [futureEntries, setFutureEntries] = useState<SubjectEntry[]>([
     createEmptyEntry(),
   ]);
@@ -114,8 +122,6 @@ export default function PlanPage() {
     );
 
     for (const target of targets) {
-      // target = (totalCurrent + futureCredits * neededGP) / (currentCredits + futureCredits)
-      // Solving for neededGP:
       const neededGP =
         (target * (currentCredits + futureCredits) - totalCurrent) /
         futureCredits;
@@ -124,15 +130,12 @@ export default function PlanPage() {
       let possible = false;
 
       if (neededGP <= 0) {
-        // Already above target even with lowest grades
         possible = true;
         minGrade = "Any grade";
       } else if (neededGP <= 10) {
         possible = true;
-        // Find the LOWEST grade whose points >= neededGP
-        // Iterate from lowest (E=5) to highest (S=10), pick the first that satisfies
         const gradeAscending: Grade[] = ["E", "D", "C", "B", "A", "S"];
-        minGrade = "S (10)"; // fallback to highest
+        minGrade = "S (10)";
         for (const g of gradeAscending) {
           if (GRADE_POINTS[g] >= neededGP) {
             minGrade = `${g} (${GRADE_POINTS[g]})`;
@@ -140,7 +143,6 @@ export default function PlanPage() {
           }
         }
       }
-      // else neededGP > 10 → not possible, stays as default
 
       results.push({
         target,
@@ -153,28 +155,23 @@ export default function PlanPage() {
     return results;
   }, [validCompleted, validFuture, currentCredits, futureCredits]);
 
-  const createHandlers = (
-    setEntries: React.Dispatch<React.SetStateAction<SubjectEntry[]>>
-  ) => ({
-    add: () => setEntries((prev) => [...prev, createEmptyEntry()]),
+  // Future handlers (local state)
+  const futureHandlers = {
+    add: () => setFutureEntries((prev) => [...prev, createEmptyEntry()]),
     remove: (id: string) =>
-      setEntries((prev) => {
+      setFutureEntries((prev) => {
         const filtered = prev.filter((e) => e.id !== id);
         return filtered.length > 0 ? filtered : [createEmptyEntry()];
       }),
     update: (id: string, field: keyof SubjectEntry, value: string | number) =>
-      setEntries((prev) =>
+      setFutureEntries((prev) =>
         prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
       ),
-    reset: () => setEntries([createEmptyEntry()]),
-  });
+    reset: () => setFutureEntries([createEmptyEntry()]),
+  };
 
-  const completedHandlers = createHandlers(setCompletedEntries);
-  const futureHandlers = createHandlers(setFutureEntries);
-
-  const handleDomainChange = (newDomain: DegreeDomain) => {
+  const handleDomainChange = (newDomain: typeof domain) => {
     setDomain(newDomain);
-    setCompletedEntries([createEmptyEntry()]);
     setFutureEntries([createEmptyEntry()]);
   };
 
@@ -192,8 +189,8 @@ export default function PlanPage() {
           Future CGPA Planning
         </h1>
         <p className="text-muted-foreground mt-2">
-          Add hypothetical future subjects with expected grades to see how your
-          CGPA will change. Plan your academic path!
+          Your completed subjects are synced automatically. Add hypothetical
+          future subjects with expected grades to see how your CGPA will change.
         </p>
       </div>
 
@@ -201,6 +198,17 @@ export default function PlanPage() {
       <div className="mb-6">
         <DomainSelector value={domain} onChange={handleDomainChange} />
       </div>
+
+      {/* Sync info */}
+      {validCompleted.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5">
+          <Info className="h-4 w-4 text-primary shrink-0" />
+          <span>
+            <span className="font-semibold text-foreground">{validCompleted.length}</span> completed
+            subjects ({currentCredits} credits) synced from Current CGPA tab.
+          </span>
+        </div>
+      )}
 
       {/* CGPA Comparison */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -234,18 +242,20 @@ export default function PlanPage() {
         </div>
       )}
 
-      {/* Completed Subjects */}
+      {/* Completed Subjects (shared) */}
       <Card className="mb-6">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-lg">Completed Subjects</CardTitle>
-              <CardDescription>Your current academic record</CardDescription>
+              <CardDescription>
+                Synced from Current CGPA tab — changes here are reflected everywhere
+              </CardDescription>
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={completedHandlers.reset}
+              onClick={resetCompleted}
             >
               <RotateCcw className="h-4 w-4 mr-1" />
               Reset
@@ -274,10 +284,7 @@ export default function PlanPage() {
                     .filter((e) => {
                       if (!e.subjectId || e.subjectId === "")
                         return level === completedLevel;
-                      const subjects = getSubjectsByDomainAndLevel(
-                        domain,
-                        level
-                      );
+                      const subjects = getSubjectsByDomainAndLevel(domain, level);
                       return subjects.some((s) => s.id === e.subjectId);
                     })
                     .map((entry) => (
@@ -286,15 +293,15 @@ export default function PlanPage() {
                         entry={entry}
                         subjects={getSubjectsByDomainAndLevel(domain, level)}
                         usedSubjectIds={allUsedSubjectIds}
-                        onUpdate={completedHandlers.update}
-                        onRemove={completedHandlers.remove}
+                        onUpdate={updateCompleted}
+                        onRemove={removeCompleted}
                       />
                     ))}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={completedHandlers.add}
+                  onClick={addCompleted}
                   className="mt-4 w-full border-dashed"
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -354,10 +361,7 @@ export default function PlanPage() {
                       if (e.subjectId === "__custom__") return level === futureLevel;
                       if (!e.subjectId || e.subjectId === "")
                         return level === futureLevel;
-                      const subjects = getSubjectsByDomainAndLevel(
-                        domain,
-                        level
-                      );
+                      const subjects = getSubjectsByDomainAndLevel(domain, level);
                       return subjects.some((s) => s.id === e.subjectId);
                     })
                     .map((entry) => (
@@ -389,7 +393,7 @@ export default function PlanPage() {
 
       {/* Target Analysis */}
       {targetAnalysis && targetAnalysis.length > 0 && (
-        <Card>
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Lightbulb className="h-5 w-5 text-yellow-500" />
@@ -430,6 +434,14 @@ export default function PlanPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Analytics */}
+      {(validCompleted.length > 0 || validFuture.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <GradeChart entries={[...completedEntries, ...futureEntries]} />
+          <LevelBreakdown entries={[...completedEntries, ...futureEntries]} domain={domain} />
+        </div>
       )}
     </div>
   );

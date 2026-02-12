@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Plus, RotateCcw, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,34 +8,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DomainSelector } from "@/components/domain-selector";
 import { CGPADisplay } from "@/components/cgpa-display";
 import { SubjectEntryRow } from "@/components/subject-entry-row";
-import {
-  DegreeDomain,
-  SubjectEntry,
-  calculateCGPA,
-  generateId,
-} from "@/lib/grading";
+import { GradeChart } from "@/components/grade-chart";
+import { LevelBreakdown } from "@/components/level-breakdown";
+import { useStore } from "@/lib/store";
+import { calculateCGPA } from "@/lib/grading";
 import { getSubjectsByDomainAndLevel } from "@/lib/subjects";
-
-function createEmptyEntry(): SubjectEntry {
-  return {
-    id: generateId(),
-    subjectId: "",
-    subjectName: "",
-    credits: 4,
-    grade: "S",
-  };
-}
+import { useState } from "react";
 
 export default function CurrentCGPAPage() {
-  const [domain, setDomain] = useState<DegreeDomain>("ds");
-  const [entries, setEntries] = useState<SubjectEntry[]>([createEmptyEntry()]);
-  const [activeLevel, setActiveLevel] = useState("Foundation");
+  const {
+    domain,
+    completedEntries,
+    setDomain,
+    addCompleted,
+    removeCompleted,
+    updateCompleted,
+    resetCompleted,
+  } = useStore();
 
+  const [activeLevel, setActiveLevel] = useState("Foundation");
   const levels = ["Foundation", "Diploma", "Degree"];
 
   const validEntries = useMemo(
-    () => entries.filter((e) => e.subjectId && e.subjectId !== "" && e.credits > 0),
-    [entries]
+    () => completedEntries.filter((e) => e.subjectId && e.subjectId !== "" && e.credits > 0),
+    [completedEntries]
   );
 
   const cgpa = useMemo(() => calculateCGPA(validEntries), [validEntries]);
@@ -45,40 +41,9 @@ export default function CurrentCGPAPage() {
   );
 
   const usedSubjectIds = useMemo(
-    () => new Set(entries.map((e) => e.subjectId).filter(Boolean)),
-    [entries]
+    () => new Set(completedEntries.map((e) => e.subjectId).filter(Boolean)),
+    [completedEntries]
   );
-
-  const addEntry = () => {
-    setEntries((prev) => [...prev, createEmptyEntry()]);
-  };
-
-  const removeEntry = (id: string) => {
-    setEntries((prev) => {
-      const filtered = prev.filter((e) => e.id !== id);
-      // Always keep at least one entry row
-      return filtered.length > 0 ? filtered : [createEmptyEntry()];
-    });
-  };
-
-  const updateEntry = (
-    id: string,
-    field: keyof SubjectEntry,
-    value: string | number
-  ) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
-    );
-  };
-
-  const resetAll = () => {
-    setEntries([createEmptyEntry()]);
-  };
-
-  const handleDomainChange = (newDomain: DegreeDomain) => {
-    setDomain(newDomain);
-    setEntries([createEmptyEntry()]);
-  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -90,12 +55,13 @@ export default function CurrentCGPAPage() {
         </h1>
         <p className="text-muted-foreground mt-2">
           Add your completed subjects and grades to calculate your current CGPA.
+          Your data is saved automatically and shared across all tabs.
         </p>
       </div>
 
       {/* Domain Selector */}
       <div className="mb-6">
-        <DomainSelector value={domain} onChange={handleDomainChange} />
+        <DomainSelector value={domain} onChange={setDomain} />
       </div>
 
       {/* CGPA Display */}
@@ -106,6 +72,12 @@ export default function CurrentCGPAPage() {
           totalSubjects={validEntries.length}
           label="Current CGPA"
         />
+      </div>
+
+      {/* Grade Chart + Level Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <GradeChart entries={completedEntries} />
+        <LevelBreakdown entries={completedEntries} domain={domain} />
       </div>
 
       {/* Subject Entries */}
@@ -119,7 +91,7 @@ export default function CurrentCGPAPage() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={resetAll}>
+              <Button variant="outline" size="sm" onClick={resetCompleted}>
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reset
               </Button>
@@ -151,7 +123,7 @@ export default function CurrentCGPAPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {entries
+                  {completedEntries
                     .filter((e) => {
                       if (!e.subjectId || e.subjectId === "") {
                         return level === activeLevel;
@@ -165,8 +137,8 @@ export default function CurrentCGPAPage() {
                         entry={entry}
                         subjects={getSubjectsByDomainAndLevel(domain, level)}
                         usedSubjectIds={usedSubjectIds}
-                        onUpdate={updateEntry}
-                        onRemove={removeEntry}
+                        onUpdate={updateCompleted}
+                        onRemove={removeCompleted}
                       />
                     ))}
                 </div>
@@ -174,7 +146,7 @@ export default function CurrentCGPAPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={addEntry}
+                  onClick={addCompleted}
                   className="mt-4 w-full border-dashed"
                 >
                   <Plus className="h-4 w-4 mr-1" />
