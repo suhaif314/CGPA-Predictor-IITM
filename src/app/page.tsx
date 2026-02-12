@@ -54,7 +54,11 @@ export default function CurrentCGPAPage() {
   };
 
   const removeEntry = (id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setEntries((prev) => {
+      const filtered = prev.filter((e) => e.id !== id);
+      // Always keep at least one entry row
+      return filtered.length > 0 ? filtered : [createEmptyEntry()];
+    });
   };
 
   const updateEntry = (

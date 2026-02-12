@@ -96,7 +96,11 @@ export default function PredictPage() {
     setEntries: React.Dispatch<React.SetStateAction<SubjectEntry[]>>
   ) => ({
     add: () => setEntries((prev) => [...prev, createEmptyEntry()]),
-    remove: (id: string) => setEntries((prev) => prev.filter((e) => e.id !== id)),
+    remove: (id: string) =>
+      setEntries((prev) => {
+        const filtered = prev.filter((e) => e.id !== id);
+        return filtered.length > 0 ? filtered : [createEmptyEntry()];
+      }),
     update: (id: string, field: keyof SubjectEntry, value: string | number) =>
       setEntries((prev) =>
         prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
@@ -113,7 +117,10 @@ export default function PredictPage() {
     setOngoingEntries([createEmptyEntry()]);
   };
 
-  const cgpaDiff = predictedCGPA - currentCGPA;
+  const cgpaDiff =
+    validCompleted.length > 0 && validOngoing.length > 0
+      ? predictedCGPA - currentCGPA
+      : 0;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -145,7 +152,7 @@ export default function PredictPage() {
         <div className="hidden md:flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <ArrowRight className="h-8 w-8 text-primary" />
-            {validOngoing.length > 0 && validCompleted.length > 0 && (
+            {validOngoing.length > 0 && validCompleted.length > 0 && cgpaDiff !== 0 && (
               <span
                 className={`text-sm font-semibold ${
                   cgpaDiff >= 0 ? "text-green-600" : "text-red-600"

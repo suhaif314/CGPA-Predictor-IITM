@@ -42,24 +42,32 @@ export interface SubjectEntry {
 
 // CGPA = Sum(credits_i * grade_points_i) / Sum(credits_i)
 export function calculateCGPA(entries: SubjectEntry[]): number {
-  if (entries.length === 0) return 0;
+  // Filter to only valid entries: must have positive credits and a recognized grade
+  const validEntries = entries.filter(
+    (e) => e.credits > 0 && e.grade in GRADE_POINTS
+  );
 
-  const totalCredits = entries.reduce((sum, e) => sum + e.credits, 0);
+  if (validEntries.length === 0) return 0;
+
+  const totalCredits = validEntries.reduce((sum, e) => sum + e.credits, 0);
   if (totalCredits === 0) return 0;
 
-  const totalGradePoints = entries.reduce(
+  const totalGradePoints = validEntries.reduce(
     (sum, e) => sum + e.credits * GRADE_POINTS[e.grade],
     0
   );
 
-  return totalGradePoints / totalCredits;
+  // Round to 2 decimal places to avoid floating-point precision issues
+  return Math.round((totalGradePoints / totalCredits) * 100) / 100;
 }
 
 // Calculate CGPA combining multiple groups of entries
 export function calculateCombinedCGPA(
   ...groups: SubjectEntry[][]
 ): number {
-  const allEntries = groups.flat();
+  const allEntries = groups.flat().filter(
+    (e) => e.credits > 0 && e.grade in GRADE_POINTS
+  );
   return calculateCGPA(allEntries);
 }
 

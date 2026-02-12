@@ -10,7 +10,8 @@ interface CGPADisplayProps {
   label?: string;
 }
 
-function getGradeColor(cgpa: number): string {
+function getGradeColor(cgpa: number, hasSubjects: boolean): string {
+  if (!hasSubjects) return "text-muted-foreground";
   if (cgpa >= 9) return "text-emerald-600";
   if (cgpa >= 8) return "text-green-600";
   if (cgpa >= 7) return "text-blue-600";
@@ -19,14 +20,14 @@ function getGradeColor(cgpa: number): string {
   return "text-red-600";
 }
 
-function getGradeLabel(cgpa: number): string {
+function getGradeLabel(cgpa: number, hasSubjects: boolean): string {
+  if (!hasSubjects) return "N/A";
   if (cgpa >= 9) return "Outstanding";
   if (cgpa >= 8) return "Excellent";
   if (cgpa >= 7) return "Very Good";
   if (cgpa >= 6) return "Good";
   if (cgpa >= 5) return "Average";
-  if (cgpa > 0) return "Below Average";
-  return "N/A";
+  return "Below Average";
 }
 
 export function CGPADisplay({
@@ -43,15 +44,15 @@ export function CGPADisplay({
             {label}
           </p>
           <div
-            className={`text-5xl font-bold tracking-tight ${getGradeColor(cgpa)}`}
+            className={`text-5xl font-bold tracking-tight ${getGradeColor(cgpa, totalSubjects > 0)}`}
           >
-            {cgpa > 0 ? cgpa.toFixed(2) : "—"}
+            {totalSubjects > 0 ? cgpa.toFixed(2) : "—"}
           </div>
           <Badge
             variant="secondary"
             className="mt-2 text-xs"
           >
-            {getGradeLabel(cgpa)}
+            {getGradeLabel(cgpa, totalSubjects > 0)}
           </Badge>
           <div className="mt-4 flex items-center justify-center gap-6 text-sm text-muted-foreground">
             <div>

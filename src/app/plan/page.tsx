@@ -98,6 +98,7 @@ export default function PlanPage() {
   // Target CGPA analysis
   const targetAnalysis = useMemo(() => {
     if (validCompleted.length === 0) return null;
+    if (validFuture.length === 0 || futureCredits === 0) return null;
 
     const targets = [7.0, 7.5, 8.0, 8.5, 9.0, 9.5];
     const results: {
@@ -107,41 +108,46 @@ export default function PlanPage() {
       creditsNeeded: number;
     }[] = [];
 
+    const totalCurrent = validCompleted.reduce(
+      (s, e) => s + e.credits * GRADE_POINTS[e.grade],
+      0
+    );
+
     for (const target of targets) {
-      // Calculate: what grade is needed for future subjects to reach target?
-      // target = (currentCredits * currentCGPA + futureCredits * neededGP) / (currentCredits + futureCredits)
-      const totalCurrent = validCompleted.reduce(
-        (s, e) => s + e.credits * GRADE_POINTS[e.grade],
-        0
-      );
+      // target = (totalCurrent + futureCredits * neededGP) / (currentCredits + futureCredits)
+      // Solving for neededGP:
+      const neededGP =
+        (target * (currentCredits + futureCredits) - totalCurrent) /
+        futureCredits;
 
-      if (validFuture.length > 0) {
-        const neededGP =
-          (target * (currentCredits + futureCredits) - totalCurrent) /
-          futureCredits;
+      let minGrade = "Not possible";
+      let possible = false;
 
-        let minGrade = "Not possible";
-        let possible = false;
-
-        if (neededGP <= 10) {
-          possible = true;
-          // Find the minimum grade that satisfies
-          const gradeOrder: Grade[] = ["S", "A", "B", "C", "D", "E"];
-          for (const g of gradeOrder) {
-            if (GRADE_POINTS[g] >= neededGP) {
-              minGrade = `${g} (${GRADE_POINTS[g]})`;
-            }
+      if (neededGP <= 0) {
+        // Already above target even with lowest grades
+        possible = true;
+        minGrade = "Any grade";
+      } else if (neededGP <= 10) {
+        possible = true;
+        // Find the LOWEST grade whose points >= neededGP
+        // Iterate from lowest (E=5) to highest (S=10), pick the first that satisfies
+        const gradeAscending: Grade[] = ["E", "D", "C", "B", "A", "S"];
+        minGrade = "S (10)"; // fallback to highest
+        for (const g of gradeAscending) {
+          if (GRADE_POINTS[g] >= neededGP) {
+            minGrade = `${g} (${GRADE_POINTS[g]})`;
+            break;
           }
-          if (neededGP <= 0) minGrade = "Any grade";
         }
-
-        results.push({
-          target,
-          possible,
-          minGrade,
-          creditsNeeded: futureCredits,
-        });
       }
+      // else neededGP > 10 → not possible, stays as default
+
+      results.push({
+        target,
+        possible,
+        minGrade,
+        creditsNeeded: futureCredits,
+      });
     }
 
     return results;
@@ -152,7 +158,10 @@ export default function PlanPage() {
   ) => ({
     add: () => setEntries((prev) => [...prev, createEmptyEntry()]),
     remove: (id: string) =>
-      setEntries((prev) => prev.filter((e) => e.id !== id)),
+      setEntries((prev) => {
+        const filtered = prev.filter((e) => e.id !== id);
+        return filtered.length > 0 ? filtered : [createEmptyEntry()];
+      }),
     update: (id: string, field: keyof SubjectEntry, value: string | number) =>
       setEntries((prev) =>
         prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))

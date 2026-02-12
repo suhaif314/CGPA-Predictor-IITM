@@ -94,9 +94,16 @@ export function SubjectEntryRow({
           min={1}
           max={12}
           value={entry.credits}
-          onChange={(e) =>
-            onUpdate(entry.id, "credits", parseInt(e.target.value) || 0)
-          }
+          onChange={(e) => {
+            const parsed = parseInt(e.target.value);
+            if (isNaN(parsed) || parsed < 1) {
+              onUpdate(entry.id, "credits", 1);
+            } else if (parsed > 12) {
+              onUpdate(entry.id, "credits", 12);
+            } else {
+              onUpdate(entry.id, "credits", parsed);
+            }
+          }}
           className="text-sm text-center"
           disabled={entry.subjectId !== "__custom__"}
         />
