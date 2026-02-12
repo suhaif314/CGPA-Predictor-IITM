@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#059669" />
+  <!-- Graduation cap -->
+  <polygon points="32,12 10,24 32,36 54,24" fill="white"/>
+  <rect x="30" y="28" width="4" height="14" rx="1" fill="white"/>
+  <rect x="22" y="42" width="20" height="3" rx="1.5" fill="white"/>
+  <!-- GPA text -->
+  <text x="32" y="57" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="10" fill="white">GPA</text>
+</svg>

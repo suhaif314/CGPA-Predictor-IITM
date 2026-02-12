@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   title: "CGPA Predictor — IIT Madras BS Degree",
   description:
     "Calculate your current CGPA, predict with ongoing subjects, and plan your future academic performance for IIT Madras BS in Data Science or Electronic Systems.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
