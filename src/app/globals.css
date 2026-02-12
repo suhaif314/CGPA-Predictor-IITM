@@ -125,3 +125,49 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Smooth page transitions */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out both;
+  }
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out both;
+  }
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out both;
+  }
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Gradient background accent */
+.hero-gradient {
+  background: linear-gradient(135deg, oklch(0.52 0.14 155 / 0.08) 0%, oklch(0.60 0.13 140 / 0.04) 50%, transparent 100%);
+}
+.dark .hero-gradient {
+  background: linear-gradient(135deg, oklch(0.60 0.16 155 / 0.12) 0%, oklch(0.50 0.10 180 / 0.06) 50%, transparent 100%);
+}
+
+/* Pulse glow for CGPA */
+.cgpa-glow {
+  text-shadow: 0 0 20px oklch(0.52 0.14 155 / 0.2);
+}
+.dark .cgpa-glow {
+  text-shadow: 0 0 24px oklch(0.60 0.16 155 / 0.3);
+}
