@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Plus, RotateCcw, TrendingUp, ArrowRight, Info, BookOpen, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,34 +23,24 @@ import {
   SubjectEntry,
   calculateCGPA,
   calculateCombinedCGPA,
-  generateId,
 } from "@/lib/grading";
 import { getSubjectsByDomainAndLevel } from "@/lib/subjects";
-
-function createEmptyEntry(): SubjectEntry {
-  return {
-    id: generateId(),
-    subjectId: "",
-    subjectName: "",
-    credits: 4,
-    grade: "S",
-  };
-}
 
 export default function PredictPage() {
   const {
     domain,
     completedEntries,
+    ongoingEntries,
     setDomain,
     addCompleted,
     removeCompleted,
     updateCompleted,
     resetCompleted,
+    addOngoing,
+    removeOngoing,
+    updateOngoing,
+    resetOngoing,
   } = useStore();
-
-  const [ongoingEntries, setOngoingEntries] = useState<SubjectEntry[]>([
-    createEmptyEntry(),
-  ]);
   const [completedLevel, setCompletedLevel] = useState("Foundation");
   const [ongoingLevel, setOngoingLevel] = useState("Foundation");
 
@@ -99,24 +89,7 @@ export default function PredictPage() {
     [completedEntries, ongoingEntries]
   );
 
-  const ongoingHandlers = {
-    add: () => setOngoingEntries((prev) => [...prev, createEmptyEntry()]),
-    remove: (id: string) =>
-      setOngoingEntries((prev) => {
-        const filtered = prev.filter((e) => e.id !== id);
-        return filtered.length > 0 ? filtered : [createEmptyEntry()];
-      }),
-    update: (id: string, field: keyof SubjectEntry, value: string | number) =>
-      setOngoingEntries((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
-      ),
-    reset: () => setOngoingEntries([createEmptyEntry()]),
-  };
 
-  const handleDomainChange = (newDomain: typeof domain) => {
-    setDomain(newDomain);
-    setOngoingEntries([createEmptyEntry()]);
-  };
 
   const cgpaDiff =
     validCompleted.length > 0 && validOngoing.length > 0
@@ -146,7 +119,7 @@ export default function PredictPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Domain Selector */}
         <div className="mb-6">
-          <DomainSelector value={domain} onChange={handleDomainChange} />
+          <DomainSelector value={domain} onChange={setDomain} />
         </div>
 
         {/* Sync info */}
@@ -302,7 +275,7 @@ export default function PredictPage() {
                   Add subjects you&apos;re currently taking and assign expected grades
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={ongoingHandlers.reset}>
+              <Button variant="outline" size="sm" onClick={resetOngoing}>
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reset
               </Button>
@@ -340,8 +313,8 @@ export default function PredictPage() {
                           entry={entry}
                           subjects={getSubjectsByDomainAndLevel(domain, level)}
                           usedSubjectIds={allUsedSubjectIds}
-                          onUpdate={ongoingHandlers.update}
-                          onRemove={ongoingHandlers.remove}
+                          onUpdate={updateOngoing}
+                          onRemove={removeOngoing}
                         />
                       ))}
                     </div>
@@ -354,7 +327,7 @@ export default function PredictPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={ongoingHandlers.add}
+                      onClick={addOngoing}
                       className="mt-4 w-full border-dashed hover:border-primary hover:bg-primary/5 transition-colors"
                     >
                       <Plus className="h-4 w-4 mr-1" />

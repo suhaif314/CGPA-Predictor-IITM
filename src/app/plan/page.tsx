@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Plus, RotateCcw, Target, Lightbulb, Info, BookOpen, Rocket, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,34 +25,24 @@ import {
   GRADE_POINTS,
   calculateCGPA,
   calculateCombinedCGPA,
-  generateId,
 } from "@/lib/grading";
 import { getSubjectsByDomainAndLevel } from "@/lib/subjects";
-
-function createEmptyEntry(): SubjectEntry {
-  return {
-    id: generateId(),
-    subjectId: "",
-    subjectName: "",
-    credits: 4,
-    grade: "S",
-  };
-}
 
 export default function PlanPage() {
   const {
     domain,
     completedEntries,
+    futureEntries,
     setDomain,
     addCompleted,
     removeCompleted,
     updateCompleted,
     resetCompleted,
+    addFuture,
+    removeFuture,
+    updateFuture,
+    resetFuture,
   } = useStore();
-
-  const [futureEntries, setFutureEntries] = useState<SubjectEntry[]>([
-    createEmptyEntry(),
-  ]);
   const [completedLevel, setCompletedLevel] = useState("Foundation");
   const [futureLevel, setFutureLevel] = useState("Diploma");
 
@@ -155,25 +145,7 @@ export default function PlanPage() {
     return results;
   }, [validCompleted, validFuture, currentCredits, futureCredits]);
 
-  // Future handlers (local state)
-  const futureHandlers = {
-    add: () => setFutureEntries((prev) => [...prev, createEmptyEntry()]),
-    remove: (id: string) =>
-      setFutureEntries((prev) => {
-        const filtered = prev.filter((e) => e.id !== id);
-        return filtered.length > 0 ? filtered : [createEmptyEntry()];
-      }),
-    update: (id: string, field: keyof SubjectEntry, value: string | number) =>
-      setFutureEntries((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
-      ),
-    reset: () => setFutureEntries([createEmptyEntry()]),
-  };
 
-  const handleDomainChange = (newDomain: typeof domain) => {
-    setDomain(newDomain);
-    setFutureEntries([createEmptyEntry()]);
-  };
 
   const cgpaDiff =
     validCompleted.length > 0 && validFuture.length > 0
@@ -203,7 +175,7 @@ export default function PlanPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Domain Selector */}
         <div className="mb-6">
-          <DomainSelector value={domain} onChange={handleDomainChange} />
+          <DomainSelector value={domain} onChange={setDomain} />
         </div>
 
         {/* Sync info */}
@@ -343,7 +315,7 @@ export default function PlanPage() {
                   also add custom subjects.
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={futureHandlers.reset}>
+              <Button variant="outline" size="sm" onClick={resetFuture}>
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reset
               </Button>
@@ -382,8 +354,8 @@ export default function PlanPage() {
                           entry={entry}
                           subjects={getSubjectsByDomainAndLevel(domain, level)}
                           usedSubjectIds={allUsedSubjectIds}
-                          onUpdate={futureHandlers.update}
-                          onRemove={futureHandlers.remove}
+                          onUpdate={updateFuture}
+                          onRemove={removeFuture}
                           allowCustom
                         />
                       ))}
@@ -397,7 +369,7 @@ export default function PlanPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={futureHandlers.add}
+                      onClick={addFuture}
                       className="mt-4 w-full border-dashed hover:border-primary hover:bg-primary/5 transition-colors"
                     >
                       <Plus className="h-4 w-4 mr-1" />
